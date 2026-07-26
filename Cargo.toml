@@ -2,8 +2,12 @@
 name = "punto-rs"
 version = "0.1.0"
 edition = "2021"
-description = "Keyboard layout corrector for Linux — retypes the last word in the other layout"
+description = "Keyboard layout corrector daemon for Linux — retypes mistyped text in the right layout (Punto Switcher alternative)"
 license = "MIT"
+repository = "https://github.com/netherguy4/punto-rs"
+readme = "README.md"
+keywords = ["keyboard", "layout", "evdev", "uinput", "linux"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 evdev = "0.12"

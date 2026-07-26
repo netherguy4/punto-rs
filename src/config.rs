@@ -67,7 +67,13 @@ impl Config {
             let value = value.trim().trim_matches('"').trim();
 
             let applied = match key {
-                "hotkey" => value.parse::<u16>().map(|v| cfg.hotkey = v).is_ok(),
+                "hotkey" => match keys::key_from_spec(value) {
+                    Some(code) => {
+                        cfg.hotkey = code;
+                        true
+                    }
+                    None => false,
+                },
                 "layout-switch" => match keys::parse_combo(value) {
                     Some(combo) => {
                         cfg.layout_switch = combo;
@@ -145,6 +151,21 @@ mod tests {
         );
         assert_eq!(cfg.layout_switch, vec![29, 42]);
         assert_eq!(cfg.devices, vec!["AT Translated Set 2 keyboard", "Foo"]);
+    }
+
+    #[test]
+    fn parses_named_hotkey_and_combo() {
+        let (cfg, warnings) = parse("named", "hotkey=Pause\nlayout-switch=super+space\n");
+        assert_eq!(cfg.hotkey, 119);
+        assert_eq!(cfg.layout_switch, vec![keys::KEY_LEFTMETA, keys::KEY_SPACE]);
+        assert!(warnings.is_empty(), "{warnings:?}");
+    }
+
+    #[test]
+    fn unknown_key_name_warns_and_keeps_default() {
+        let (cfg, warnings) = parse("badname", "hotkey=hyperkey\n");
+        assert_eq!(cfg.hotkey, keys::KEY_INSERT);
+        assert_eq!(warnings.len(), 1);
     }
 
     #[test]

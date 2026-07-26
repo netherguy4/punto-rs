@@ -1,5 +1,10 @@
 # punto-rs
 
+*Keyboard layout corrector daemon for Linux/Wayland: typed `ghbdtn` instead of
+`привет`? Hit a hotkey — the word is retyped in the right layout. A Punto
+Switcher / Easy Switcher alternative built on evdev/uinput, layout-agnostic by
+design (works with any pair of layouts). Docs below are in Russian.*
+
 Исправление раскладки уже набранного текста для Linux/Wayland — замена Punto
 Switcher и Easy Switcher. Набрал `ghbdtn` вместо `привет`, нажал Insert —
 слово перенабирается в правильной раскладке.
@@ -56,16 +61,32 @@ sudo systemctl enable --now punto-rs
 
 | Ключ | По умолчанию | Смысл |
 |---|---|---|
-| `hotkey` | `110` (Insert) | скан-код клавиши исправления |
-| `layout-switch` | `125+57` (Super+Space) | системная комбинация смены раскладки |
+| `hotkey` | `insert` | клавиша исправления: имя или скан-код |
+| `layout-switch` | `super+space` | системная комбинация смены раскладки |
 | `key-delay` | `6` | пауза между нажатиями при переигрывании, мс |
 | `post-backspace-delay` | `20` | пауза после стирания, мс |
 | `switch-delay` | `120` | пауза после смены раскладки, мс |
 | `devices` | пусто | клавиатуры по именам; пусто — автоопределение |
 | `max-strokes` | `512` | предел буфера |
 
+Клавиши задаются именем (`insert`, `pause`, `scrolllock`, `capslock`, `menu`,
+`rightctrl`, `f1`…`f12` и другие) либо скан-кодом из `input-event-codes.h`.
+
 Список устройств: `sudo punto-rs --list-devices`.
 Скан-коды клавиш: `sudo showkey`.
+
+## Тесты
+
+```sh
+cargo test                                          # юнит-тесты
+cargo build --release --example e2e
+sudo target/release/examples/e2e                    # сквозной, при работающем сервисе
+```
+
+Сквозной тест создаёт виртуальную клавиатуру, печатает на ней слово не в той
+раскладке, жмёт горячую клавишу и проверяет по выходному устройству демона,
+что во время набора тот молчал, а по нажатию стёр и перенабрал ровно то, что
+нужно. Внимание: события уходят в живую сессию.
 
 ## Диагностика
 

@@ -48,13 +48,50 @@ pub fn is_command_modifier(code: u16) -> bool {
     )
 }
 
-/// Разбор строки вида `125+57` в список скан-кодов.
+/// Клавиша из конфига: скан-код числом либо имя.
+pub fn key_from_spec(spec: &str) -> Option<u16> {
+    if let Ok(code) = spec.parse::<u16>() {
+        return Some(code);
+    }
+    let code = match spec.to_ascii_lowercase().as_str() {
+        "insert" | "ins" => KEY_INSERT,
+        "pause" | "break" => 119,
+        "scrolllock" => 70,
+        "capslock" => 58,
+        "menu" | "compose" => 127,
+        "space" => KEY_SPACE,
+        "tab" => KEY_TAB,
+        "leftctrl" | "ctrl" => KEY_LEFTCTRL,
+        "rightctrl" => KEY_RIGHTCTRL,
+        "leftshift" | "shift" => KEY_LEFTSHIFT,
+        "rightshift" => KEY_RIGHTSHIFT,
+        "leftalt" | "alt" => KEY_LEFTALT,
+        "rightalt" | "altgr" => KEY_RIGHTALT,
+        "leftmeta" | "super" | "win" => KEY_LEFTMETA,
+        "rightmeta" => KEY_RIGHTMETA,
+        "f1" => 59,
+        "f2" => 60,
+        "f3" => 61,
+        "f4" => 62,
+        "f5" => 63,
+        "f6" => 64,
+        "f7" => 65,
+        "f8" => 66,
+        "f9" => 67,
+        "f10" => 68,
+        "f11" => 87,
+        "f12" => 88,
+        _ => return None,
+    };
+    Some(code)
+}
+
+/// Разбор комбинации вида `125+57` или `super+space` в список скан-кодов.
 pub fn parse_combo(spec: &str) -> Option<Vec<u16>> {
     let codes: Vec<u16> = spec
         .split('+')
-        .map(|part| part.trim().parse::<u16>())
-        .collect::<Result<_, _>>()
-        .ok()?;
+        .map(|part| key_from_spec(part.trim()))
+        .collect::<Option<_>>()?;
     if codes.is_empty() {
         None
     } else {
