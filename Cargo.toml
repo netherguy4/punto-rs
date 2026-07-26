@@ -1,0 +1,14 @@
+[package]
+name = "punto-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Keyboard layout corrector for Linux — retypes the last word in the other layout"
+license = "MIT"
+
+[dependencies]
+evdev = "0.12"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true

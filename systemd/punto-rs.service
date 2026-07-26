@@ -1,0 +1,24 @@
+[Unit]
+Description=punto-rs — исправление раскладки набранного текста
+Documentation=https://github.com/nether/punto-rs
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/punto-rs
+Restart=on-failure
+RestartSec=2
+
+# Нужен доступ к /dev/input/* на чтение и к /dev/uinput на запись.
+DeviceAllow=/dev/uinput rw
+DeviceAllow=char-input r
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target
