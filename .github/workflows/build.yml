@@ -128,6 +128,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check out release notes
+        uses: actions/checkout@v6
+
       - name: Download release artifacts
         uses: actions/download-artifact@v7
         with:
@@ -144,6 +147,6 @@ jobs:
             gh release upload "$GITHUB_REF_NAME" dist/* --clobber
           else
             gh release create "$GITHUB_REF_NAME" dist/* \
-              --generate-notes \
+              --notes-file "docs/releases/${GITHUB_REF_NAME}.md" \
               --title "$GITHUB_REF_NAME"
           fi

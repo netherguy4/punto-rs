@@ -154,6 +154,7 @@ fn snapshot(connection: &Connection) -> Result<Option<String>, dbus::Error> {
     let allowed = allowed_session(
         string("Type"),
         string("Class"),
+        string("Desktop"),
         boolean("Active"),
         boolean("LockedHint"),
         boolean("Remote"),
@@ -170,11 +171,19 @@ pub fn check() -> Result<Option<String>, dbus::Error> {
 fn allowed_session(
     kind: Option<&str>,
     class: Option<&str>,
+    desktop: Option<&str>,
     active: Option<i64>,
     locked: Option<i64>,
     remote: Option<i64>,
 ) -> bool {
-    matches!(kind, Some("wayland" | "x11"))
+    // COSMIC 1.0.9 leaves LockedHint=false while locked. Revisit only after
+    // its lock integration reliably reports every lock/unlock path to logind.
+    let unsupported = desktop.is_some_and(|name| {
+        name.split(':')
+            .any(|part| part.eq_ignore_ascii_case("cosmic"))
+    });
+    !unsupported
+        && matches!(kind, Some("wayland" | "x11"))
         && class == Some("user")
         && active == Some(1)
         && locked == Some(0)
@@ -189,6 +198,7 @@ mod tests {
         assert!(allowed_session(
             Some("wayland"),
             Some("user"),
+            Some("GNOME"),
             Some(1),
             Some(0),
             Some(0)
@@ -196,6 +206,7 @@ mod tests {
         assert!(allowed_session(
             Some("x11"),
             Some("user"),
+            Some("GNOME"),
             Some(1),
             Some(0),
             Some(0)
@@ -209,10 +220,39 @@ mod tests {
             (Some("wayland"), Some("user"), Some(1), Some(0), Some(1)),
         ] {
             assert!(!allowed_session(
-                tuple.0, tuple.1, tuple.2, tuple.3, tuple.4
+                tuple.0,
+                tuple.1,
+                Some("KDE"),
+                tuple.2,
+                tuple.3,
+                tuple.4
             ));
         }
     }
+    #[test]
+    fn cosmic_cannot_rely_on_an_unlocked_logind_hint() {
+        for desktop in ["COSMIC", "cosmic", "COSMIC:Wayland", "test:Cosmic"] {
+            assert!(!allowed_session(
+                Some("wayland"),
+                Some("user"),
+                Some(desktop),
+                Some(1),
+                Some(0),
+                Some(0)
+            ));
+        }
+        for desktop in ["GNOME", "KDE", "GNOME:GNOME"] {
+            assert!(allowed_session(
+                Some("wayland"),
+                Some("user"),
+                Some(desktop),
+                Some(1),
+                Some(0),
+                Some(0)
+            ));
+        }
+    }
+
     #[test]
     fn stale_logind_snapshot_disables_correction() {
         let guard = SessionGuard::new(true);
