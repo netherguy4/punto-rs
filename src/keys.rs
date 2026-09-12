@@ -15,6 +15,19 @@ pub const KEY_INSERT: u16 = 110;
 pub const KEY_LEFTMETA: u16 = 125;
 pub const KEY_RIGHTMETA: u16 = 126;
 
+/// Кнопки указателя: BTN_LEFT (0x110) … BTN_TASK (0x117).
+pub const BTN_LEFT: u16 = 0x110;
+pub const BTN_TASK: u16 = 0x117;
+
+/// Клик мышью переставляет курсор ввода, поэтому сбрасывает буфер.
+///
+/// Тач-события тачпада (`BTN_TOUCH`, `BTN_TOOL_FINGER`) сюда намеренно не
+/// входят: они приходят от любого касания, даже от случайного, и сбрасывали бы
+/// буфер посреди набора.
+pub fn is_pointer_button(code: u16) -> bool {
+    (BTN_LEFT..=BTN_TASK).contains(&code)
+}
+
 /// Клавиши, дающие печатный символ в обеих раскладках.
 ///
 /// Диапазоны соответствуют основному блоку: цифровой ряд, три буквенных ряда
@@ -27,7 +40,7 @@ pub fn is_char(code: u16) -> bool {
 /// Разделители слов: их скан-коды одинаковы в любой раскладке,
 /// поэтому при переигрывании они воспроизводятся как есть.
 pub fn is_separator(code: u16) -> bool {
-    matches!(code, KEY_SPACE | KEY_TAB)
+    code == KEY_SPACE
 }
 
 /// Конец фразы — дальше буфер начинается заново.
@@ -51,7 +64,7 @@ pub fn is_command_modifier(code: u16) -> bool {
 /// Клавиша из конфига: скан-код числом либо имя.
 pub fn key_from_spec(spec: &str) -> Option<u16> {
     if let Ok(code) = spec.parse::<u16>() {
-        return Some(code);
+        return (1..=255).contains(&code).then_some(code);
     }
     let code = match spec.to_ascii_lowercase().as_str() {
         "insert" | "ins" => KEY_INSERT,
@@ -92,7 +105,12 @@ pub fn parse_combo(spec: &str) -> Option<Vec<u16>> {
         .split('+')
         .map(|part| key_from_spec(part.trim()))
         .collect::<Option<_>>()?;
-    if codes.is_empty() {
+    if codes.is_empty()
+        || codes
+            .iter()
+            .enumerate()
+            .any(|(i, code)| codes[..i].contains(code))
+    {
         None
     } else {
         Some(codes)

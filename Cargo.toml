@@ -2,6 +2,7 @@
 name = "punto-rs"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.89"
 description = "Keyboard layout corrector daemon for Linux — retypes mistyped text in the right layout (Punto Switcher alternative)"
 license = "MIT"
 repository = "https://github.com/netherguy4/punto-rs"
@@ -11,6 +12,9 @@ categories = ["command-line-utilities"]
 
 [dependencies]
 evdev = "0.12"
+dbus = { version = "0.9", features = ["vendored"] }
+libc = "0.2"
+signal-hook = "0.3"
 
 [profile.release]
 opt-level = "s"

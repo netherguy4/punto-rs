@@ -1,13 +1,21 @@
 [Unit]
 Description=punto-rs — исправление раскладки набранного текста
-Documentation=https://github.com/nether/punto-rs
-After=multi-user.target
+Documentation=https://github.com/netherguy4/punto-rs
+After=systemd-logind.service
+Wants=systemd-logind.service
 
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/punto-rs
+ExecStartPre=/usr/local/bin/punto-rs --check-config
 Restart=on-failure
 RestartSec=2
+RestartPreventExitStatus=2
+RuntimeDirectory=punto-rs
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+UMask=0077
+LimitCORE=0
 
 # Нужен доступ к /dev/input/* на чтение и к /dev/uinput на запись.
 DeviceAllow=/dev/uinput rw

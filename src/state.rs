@@ -40,7 +40,7 @@ impl Buffer {
         self.strokes.clear();
     }
 
-    /// Вся фраза целиком (Shift + горячая клавиша).
+    /// Вся фраза целиком.
     pub fn phrase(&self) -> &[Stroke] {
         &self.strokes
     }
@@ -68,7 +68,7 @@ impl Buffer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::keys::{KEY_SPACE, KEY_TAB};
+    use crate::keys::KEY_SPACE;
 
     /// `q w` — буквы q(16), w(17).
     fn filled() -> Buffer {
@@ -105,7 +105,7 @@ mod tests {
     fn last_word_empty_when_only_separators() {
         let mut b = Buffer::new(64);
         b.push(KEY_SPACE, false);
-        b.push(KEY_TAB, false);
+        b.push(KEY_SPACE, false);
         assert!(b.last_word().is_empty());
     }
 

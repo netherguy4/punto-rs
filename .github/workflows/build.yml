@@ -1,0 +1,149 @@
+name: Build and release
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Tests and lints
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.89.0 \
+            --profile minimal \
+            --component rustfmt \
+            --component clippy
+          rustup default 1.89.0
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Run tests
+        run: cargo test --all-targets --locked
+
+      - name: Test installation and config preservation
+        run: |
+          cargo build --locked
+          sh scripts/test-install.sh
+
+      - name: Verify service unit
+        run: |
+          sudo install -Dm755 target/debug/punto-rs /usr/local/bin/punto-rs
+          systemd-analyze verify systemd/punto-rs.service
+
+  build:
+    name: Linux x86_64
+    needs: check
+    runs-on: ubuntu-22.04
+    env:
+      RUST_TARGET: x86_64-unknown-linux-musl
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+
+      - name: Install the static-linking toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes musl-tools
+          rustup toolchain install 1.89.0 --profile minimal
+          rustup default 1.89.0
+          rustup target add "$RUST_TARGET"
+
+      - name: Verify release tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          manifest_version="$(
+            cargo metadata --no-deps --format-version 1 |
+              jq --raw-output '.packages[] | select(.name == "punto-rs") | .version'
+          )"
+          if [[ "v${manifest_version}" != "${GITHUB_REF_NAME}" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${manifest_version}"
+            exit 1
+          fi
+
+      - name: Build release binary
+        run: cargo build --release --locked --target "$RUST_TARGET"
+
+      - name: Smoke-test binary
+        run: |
+          binary="target/$RUST_TARGET/release/punto-rs"
+          "$binary" --version
+          "$binary" --check-config -c config/punto-rs.conf
+          sh scripts/test-install.sh "$binary"
+          if readelf --program-headers "$binary" | grep --quiet 'Requesting program interpreter'; then
+            echo "::error::Release binary is dynamically linked"
+            exit 1
+          fi
+
+      - name: Package release archive
+        run: |
+          asset="punto-rs-linux-x86_64.tar.gz"
+          install -Dm755 \
+            "target/$RUST_TARGET/release/punto-rs" \
+            dist/punto-rs/punto-rs
+          install -Dm644 config/punto-rs.conf \
+            dist/punto-rs/config/punto-rs.conf
+          install -Dm644 systemd/punto-rs.service \
+            dist/punto-rs/systemd/punto-rs.service
+          install -Dm644 README.md dist/punto-rs/README.md
+          install -Dm644 LICENSE dist/punto-rs/LICENSE
+          install -Dm755 scripts/install.sh dist/punto-rs/scripts/install.sh
+          cp -R LICENSES dist/punto-rs/LICENSES
+          cp -R docs dist/punto-rs/docs
+          tar --create --gzip --file "dist/${asset}" --directory dist punto-rs
+          (
+            cd dist
+            sha256sum "$asset" > "${asset}.sha256"
+          )
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: punto-rs-linux-x86_64
+          path: |
+            dist/punto-rs-linux-x86_64.tar.gz
+            dist/punto-rs-linux-x86_64.tar.gz.sha256
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: punto-rs-linux-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --generate-notes \
+              --title "$GITHUB_REF_NAME"
+          fi
